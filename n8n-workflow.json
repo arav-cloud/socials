@@ -1,0 +1,417 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Share a blog post on Instagram and X",
+        "formDescription": "Paste the URL of the blog post you want to publish.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Blog URL",
+              "fieldName": "blog_url",
+              "placeholder": "https://example.com/blog/my-post",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "path": "blog-to-social-publisher"
+        }
+      },
+      "id": "b355242c-e849-4f40-8df3-1c2710bb182a",
+      "name": "Submit Blog URL",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        160
+      ],
+      "webhookId": "29014ef1-e630-4902-86fd-0bcbbddca115"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.blog_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "19599419-35e7-4d4b-b16c-97a2d0c3462e",
+      "name": "Fetch Blog Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        288,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "title",
+              "cssSelector": "title"
+            },
+            {
+              "key": "image_url",
+              "cssSelector": "meta[property=\"og:image\"]",
+              "returnValue": "attribute",
+              "attribute": "content"
+            },
+            {
+              "key": "description",
+              "cssSelector": "meta[name=\"description\"]",
+              "returnValue": "attribute",
+              "attribute": "content"
+            },
+            {
+              "key": "body_text",
+              "cssSelector": "article, main, body"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5bb9cc2b-f516-4399-9834-e63b8b1e0af2",
+      "name": "Extract Blog Content",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        512,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-6.1-terra"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Write social media posts promoting this blog post.\nTitle: {{ $json.title }}\nSummary: {{ $json.description }}\nContent: {{ String($json.body_text).slice(0, 6000) }}\n\nReturn ONLY a JSON object (no markdown fences) with exactly these keys:\n\"tweet\": engaging post for X, max 230 characters, no URL, at most 2 hashtags.\n\"instagram_caption\": engaging Instagram caption and 3-5 short lines, emojis allowed."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 800
+        }
+      },
+      "id": "4ebec52b-8c40-45f0-a47d-dfde8eaeaffe",
+      "name": "Write Social Posts",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        736,
+        160
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "Gateway credits",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "tweet_text",
+              "type": "string",
+              "value": "={{ JSON.parse($json.output[0].content[0].text.replace(/```json|```/g, \"\").trim()).tweet }} {{ $(\"Submit Blog URL\").item.json.blog_url }}"
+            },
+            {
+              "id": "a2",
+              "name": "instagram_caption",
+              "type": "string",
+              "value": "={{ JSON.parse($json.output[0].content[0].text.replace(/```json|```/g, \"\").trim()).instagram_caption }}"
+            },
+            {
+              "id": "a3",
+              "name": "image_url",
+              "type": "string",
+              "value": "={{ $(\"Extract Blog Content\").item.json.image_url }}"
+            },
+            {
+              "id": "a4",
+              "name": "title",
+              "type": "string",
+              "value": "={{ $(\"Extract Blog Content\").item.json.title }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2bbba117-c5fc-48c4-9887-a2edb3ef7df",
+      "name": "Prepare Posts",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1088,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ \"approver@example.com\" }}",
+        "subject": "=Approve social posts: {{ $json.title }}",
+        "message": "=Tweet for X:\n{{ $json.tweet_text }}\n\nInstagram caption:\n{{ $json.instagram_caption }}\n\nImage: {{ $json.image_url }}",
+        "options": {}
+      },
+      "id": "3d20262e-e283-4a5e-b39d-069c52ae59be",
+      "name": "Ask for Approval",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1424,
+        160
+      ],
+      "webhookId": "c2f816ab-d7d7-457a-8ca8-39b8d3ea4c80",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YjEiRHW4oTo2O46S",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fffe0f73-3f5b-44a2-9963-a557df07df81",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1648,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v22.0",
+        "node": "17841435684006726",
+        "edge": "media",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "image_url",
+                "value": "={{ $(\"Prepare Posts\").item.json.image_url }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $(\"Prepare Posts\").item.json.instagram_caption }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "db5ca686-c1b6-440d-96ba-8013f6e6bb96",
+      "name": "Create Instagram Media",
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1.1,
+      "position": [
+        2112,
+        416
+      ],
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "yU3monnr87V1847C",
+          "name": "Facebook Graph account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v22.0",
+        "node": "17841435684006726",
+        "edge": "media_publish",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "creation_id",
+                "value": "={{ $json.id }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "1bcb23ba-56da-4959-9d03-5804c2e927f7",
+      "name": "Publish Instagram Post",
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1.1,
+      "position": [
+        2336,
+        416
+      ],
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "yU3monnr87V1847C",
+          "name": "Facebook Graph account 2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Submit Blog URL": {
+      "main": [
+        [
+          {
+            "node": "Fetch Blog Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Blog Page": {
+      "main": [
+        [
+          {
+            "node": "Extract Blog Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Blog Content": {
+      "main": [
+        [
+          {
+            "node": "Write Social Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Social Posts": {
+      "main": [
+        [
+          {
+            "node": "Prepare Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Posts": {
+      "main": [
+        [
+          {
+            "node": "Ask for Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask for Approval": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Create Instagram Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Instagram Media": {
+      "main": [
+        [
+          {
+            "node": "Publish Instagram Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "nodeGroups": [
+    {
+      "id": "21039909-9994-442f-983d-e0a1578d96cb",
+      "name": "Draft social posts",
+      "nodeIds": [
+        "19599419-35e7-4d4b-b16c-97a2d0c3462e",
+        "5bb9cc2b-f516-4399-9834-e63b8b1e0af2",
+        "4ebec52b-8c40-45f0-a47d-dfde8eaeaffe",
+        "2bbba117-c5fc-48c4-9887-a2edb3ef7df"
+      ],
+      "description": "Reads the submitted blog page, pulls title, cover image and text, and writes an X post and Instagram caption."
+    },
+    {
+      "id": "0f4e2305-9886-4bda-8166-6406af944f8b",
+      "name": "Review before publishing",
+      "nodeIds": [
+        "3d20262e-e283-4a5e-b39d-069c52ae59be",
+        "fffe0f73-3f5b-44a2-9963-a557df07df81"
+      ],
+      "description": "Emails the drafts for approval and only continues when the reviewer approves."
+    },
+    {
+      "id": "5ac0f7e7-1dac-41c8-a235-c3b83152841b",
+      "name": "Publish to Instagram",
+      "nodeIds": [
+        "db5ca686-c1b6-440d-96ba-8013f6e6bb96",
+        "1bcb23ba-56da-4959-9d03-5804c2e927f7"
+      ],
+      "description": "Uploads the blog cover image with the caption, then publishes it to the Instagram business account."
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d03444f058d153aff9edb02f3d0e522004e67fb231947c3dff1a61229b8ccac0"
+  }
+}
