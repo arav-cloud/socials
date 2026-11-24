@@ -106,3 +106,38 @@ The current workflow only drafts X copy; it does not post it. To publish to X, a
 | Approved? | Allows publishing only when `data.approved` is `true`. |
 | Create Instagram Media | Creates an Instagram media container from the image and caption. |
 | Publish Instagram Post | Publishes the created Instagram media container. |
+
+## How to use
+
+1. **Import the workflow**
+   - Open n8n and select **Import from File**.
+   - Import `n8n-workflow.json` from this repository.
+
+2. **Configure credentials**
+   - Open **Write Social Posts** and select or create the OpenAI credential. Confirm that `gpt-6.1-terra` is available in your environment.
+   - Open **Ask for Approval** and select or create a Gmail OAuth2 credential.
+   - Replace `approver@example.com` with the real reviewer’s email address.
+   - Open **Create Instagram Media** and **Publish Instagram Post**, then select a valid Facebook Graph API credential.
+
+3. **Configure Instagram publishing**
+   - Replace the Instagram account ID in both Graph API nodes if the configured ID is not the account you intend to publish to.
+   - Verify that the credential and account have the permissions and publishing access required by Meta.
+
+4. **Test the form**
+   - Activate or test the workflow.
+   - Open the form URL for the `blog-to-social-publisher` path.
+   - Enter a public blog URL that includes a title, description, body text, and an accessible Open Graph image.
+
+5. **Review the generated posts**
+   - The workflow fetches the article, generates an X post and Instagram caption, and emails both drafts to the configured reviewer.
+   - Check the generated text and image URL in the approval email before responding.
+
+6. **Approve or decline**
+   - Approve the email request to create and publish the Instagram media.
+   - Decline or leave the request unapproved to stop the workflow. A declined run does not publish to Instagram.
+
+7. **Verify publication**
+   - Open the configured Instagram professional account and confirm that the image and caption were published.
+   - Review the n8n execution history if media creation or publishing fails.
+
+> This workflow currently does not publish the generated X post. It only creates the X draft for the approval email. For X publishing, add and configure an X node and connect it to the approved branch.
